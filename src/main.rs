@@ -1,6 +1,5 @@
-use std::process::exit;
-
 use http_server_rs::run;
+use std::process::exit;
 
 #[tokio::main]
 async fn main() {
