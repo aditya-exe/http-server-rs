@@ -4,8 +4,8 @@ use tokio::{io::AsyncReadExt, net::TcpStream};
 #[derive(Debug)]
 pub struct HttpRequest {
     pub method: Option<HttpMethod>,
-    pub url: Option<String>,
-    pub protocol: Option<String>,
+    url: Option<String>,
+    protocol: Option<String>,
 }
 
 impl HttpRequest {
@@ -44,6 +44,14 @@ impl HttpRequest {
                 }
             },
         })
+    }
+
+    pub fn get_url(&self) -> &String {
+        self.url.as_ref().unwrap()
+    }
+
+    pub fn get_protocol(&self) -> &String {
+        self.protocol.as_ref().unwrap()
     }
 }
 

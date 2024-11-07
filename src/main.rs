@@ -1,9 +1,11 @@
-use http_server_rs::run;
+use http_server_rs::HttpServer;
 use std::process::exit;
 
 #[tokio::main]
 async fn main() {
-    match run().await {
+    let server = HttpServer::new(4221);
+
+    match server.serve().await {
         Ok(()) => println!("OK: Server exit"),
         Err(err) => {
             eprintln!("ERR: {err}");
