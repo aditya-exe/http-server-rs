@@ -1,11 +1,14 @@
+use crate::headers::Header;
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 use tokio::{io::AsyncReadExt, net::TcpStream};
 
-#[derive(Debug)]
 pub struct HttpRequest {
-    pub method: Option<HttpMethod>,
+    method: Option<HttpMethod>,
     url: Option<String>,
     protocol: Option<String>,
+    pub headers: HashMap<Header, String>,
+    body: Option<String>,
 }
 
 impl HttpRequest {
@@ -16,12 +19,18 @@ impl HttpRequest {
             .await
             .context("TRY: Reading incoming stream")?;
         let request_string = String::from_utf8_lossy(&request[..bytes_read]);
-        let request_vec = request_string.split("\r\n").collect::<Vec<_>>();
+        let (req_and_headers, body) = request_string
+            .split_once("\r\n")
+            .and_then(|(r, b)| Some((r.split("\r\n").collect::<Vec<_>>(), b)))
+            .unwrap();
 
         Ok(Self {
             method: {
-                if request_vec.len() > 0 {
-                    match request_vec[0].split_ascii_whitespace().collect::<Vec<_>>()[0] {
+                if req_and_headers.len() > 0 {
+                    match req_and_headers[0]
+                        .split_ascii_whitespace()
+                        .collect::<Vec<_>>()[0]
+                    {
                         "GET" => Some(HttpMethod::GET),
                         _ => None,
                     }
@@ -30,19 +39,54 @@ impl HttpRequest {
                 }
             },
             url: {
-                if request_vec.len() > 0 {
-                    Some(request_vec[0].split_ascii_whitespace().collect::<Vec<_>>()[1].into())
+                if req_and_headers.len() > 0 {
+                    Some(
+                        req_and_headers[0]
+                            .split_ascii_whitespace()
+                            .collect::<Vec<_>>()[1]
+                            .into(),
+                    )
                 } else {
                     None
                 }
             },
             protocol: {
-                if request_vec.len() > 0 {
-                    Some(request_vec[0].split_ascii_whitespace().collect::<Vec<_>>()[2].into())
+                if req_and_headers.len() > 0 {
+                    Some(
+                        req_and_headers[0]
+                            .split_ascii_whitespace()
+                            .collect::<Vec<_>>()[2]
+                            .into(),
+                    )
                 } else {
                     None
                 }
             },
+            headers: {
+                if req_and_headers.len() > 1 {
+                    let mut header_map = HashMap::new();
+
+                    req_and_headers.iter().skip(1).for_each(|&s| {
+                        match s.split_once(" ") {
+                            Some(("Host:", v)) => header_map.insert(Header::Host, v.to_string()),
+                            Some(("User-Agent:", v)) => {
+                                header_map.insert(Header::UserAgent, v.to_string())
+                            }
+
+                            Some(("Accept:", v)) => {
+                                header_map.insert(Header::Accept, v.to_string())
+                            }
+                            Some(_) => unimplemented!(),
+                            None => None,
+                        };
+                    });
+
+                    header_map
+                } else {
+                    HashMap::new()
+                }
+            },
+            body: Some(body.to_string()),
         })
     }
 
@@ -55,7 +99,6 @@ impl HttpRequest {
     }
 }
 
-#[derive(Debug)]
 pub enum HttpMethod {
     GET,
 }

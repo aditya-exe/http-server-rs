@@ -1,10 +1,15 @@
+mod headers;
 mod http_request;
 mod http_response;
+mod http_server;
+mod http_status_code;
 mod router;
 
 use anyhow::{Context, Result};
+use headers::Header;
 use http_request::HttpRequest;
-use http_response::{Header, HttpResponse, HttpStatusCode};
+use http_response::HttpResponse;
+use http_status_code::HttpStatusCode;
 use std::net::SocketAddr;
 use tokio::{
     io::AsyncWriteExt,
@@ -50,11 +55,19 @@ impl HttpServer {
             }
             path if url.starts_with("/echo/") => {
                 let slug = path.split_once("/echo/").unwrap().1;
-                let response =
-                    HttpResponse::create(http_req.get_protocol().as_str(), HttpStatusCode::Ok)
-                        .add_header(Header::ContentType("text/plain".into()))
-                        .add_header(Header::ContentLength(slug.len()))
-                        .add_body(format!("{}", slug.len()));
+                let response = HttpResponse::create(&http_req.get_protocol(), HttpStatusCode::Ok)
+                    .add_header(Header::ContentType, "text/plain".into())
+                    .add_header(Header::ContentLength, slug.len().to_string())
+                    .add_body(format!("{}", slug));
+
+                response.send(&mut stream).await?;
+            }
+            _ if url.starts_with("/user-agent") => {
+                let user_agent = http_req.headers.get(&Header::UserAgent).unwrap();
+                let response = HttpResponse::create(&http_req.get_protocol(), HttpStatusCode::Ok)
+                    .add_header(Header::ContentType, "text/plain".to_string())
+                    .add_header(Header::ContentLength, user_agent.len().to_string())
+                    .add_body(user_agent.to_owned());
 
                 response.send(&mut stream).await?;
             }
