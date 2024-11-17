@@ -48,10 +48,15 @@ impl HttpServer {
 
         match url {
             "/" => {
-                let response =
-                    HttpResponse::create(http_req.get_protocol().as_str(), HttpStatusCode::Ok);
+                // let response =
+                //     HttpResponse::create(http_req.get_protocol().as_str(), HttpStatusCode::Ok);
 
-                response.send(&mut stream).await?;
+                // response.send(&mut stream).await?;
+                let mut resp = String::new();
+                resp.push_str(
+                    format!("{} {}\r\n\r\n", &http_req.get_protocol(), HttpStatusCode::Ok).as_str(),
+                );
+                stream.write_all(resp.as_bytes()).await.context("TRO")?;
             }
             path if url.starts_with("/echo/") => {
                 let slug = path.split_once("/echo/").unwrap().1;
