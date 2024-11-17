@@ -1,16 +1,15 @@
-use std::net::TcpListener;
+use http_server_rs::HttpServer;
+use std::process::exit;
 
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
+#[tokio::main]
+async fn main() {
+    let server = HttpServer::new(4221);
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(_stream) => {
-                println!("accepted new connection");
-            }
-            Err(e) => {
-                println!("error: {}", e);
-            }
+    match server.serve().await {
+        Ok(()) => println!("OK: Server exit"),
+        Err(err) => {
+            eprintln!("ERR: {err}");
+            exit(1)
         }
     }
 }
