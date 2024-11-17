@@ -1,4 +1,4 @@
-use http_server_rs::HttpServer;
+use codecrafters_http_server::HttpServer;
 use std::process::exit;
 
 #[tokio::main]
