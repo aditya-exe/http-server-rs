@@ -21,4 +21,4 @@ set -e # Exit early if any commands fail
 #
 # - Edit this to change how your program runs locally
 # - Edit .codecrafters/run.sh to change how your program runs remotely
-exec /tmp/codecrafters-build-http-server-rust/release/http_server_rs "$@"
+exec /tmp/http_server_rs/release/http_server_rs "$@"
