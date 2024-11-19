@@ -1,4 +1,4 @@
-use crate::headers::Header;
+use crate::headers::{Header, Headers};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use tokio::{io::AsyncReadExt, net::TcpStream};
@@ -7,7 +7,7 @@ pub struct HttpRequest {
     method: Option<HttpMethod>,
     url: Option<String>,
     protocol: Option<String>,
-    pub headers: HashMap<Header, String>,
+    pub headers: Headers,
     body: Option<String>,
 }
 
@@ -19,75 +19,61 @@ impl HttpRequest {
             .await
             .context("TRY: Reading incoming stream")?;
         let request_string = String::from_utf8_lossy(&request[..bytes_read]);
-        let (req_and_headers, body) = request_string
-            .split_once("\r\n")
-            .and_then(|(r, b)| Some((r.split("\r\n").collect::<Vec<_>>(), b)))
-            .unwrap();
 
-        Ok(Self {
-            method: {
-                if req_and_headers.len() > 0 {
-                    match req_and_headers[0]
-                        .split_ascii_whitespace()
-                        .collect::<Vec<_>>()[0]
-                    {
-                        "GET" => Some(HttpMethod::GET),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-            },
-            url: {
-                if req_and_headers.len() > 0 {
-                    Some(
-                        req_and_headers[0]
-                            .split_ascii_whitespace()
-                            .collect::<Vec<_>>()[1]
-                            .into(),
-                    )
-                } else {
-                    None
-                }
-            },
-            protocol: {
-                if req_and_headers.len() > 0 {
-                    Some(
-                        req_and_headers[0]
-                            .split_ascii_whitespace()
-                            .collect::<Vec<_>>()[2]
-                            .into(),
-                    )
-                } else {
-                    None
-                }
-            },
-            headers: {
-                if req_and_headers.len() > 1 {
-                    let mut header_map = HashMap::new();
+        let req = request_string.split_once("\r\n").and_then(|(r, b)| {
+            Some((
+                r.split(" ").collect::<Vec<_>>(),
+                b.split_once("\r\n\r\n").and_then(|(h, b)| {
+                    Some((
+                        h.split("\r\n").collect::<Vec<_>>(),
+                        if b.len() > 0 {
+                            Some(b.to_owned())
+                        } else {
+                            None
+                        },
+                    ))
+                }),
+            ))
+        });
 
-                    req_and_headers.iter().skip(1).for_each(|&s| {
-                        match s.split_once(" ") {
-                            Some(("Host:", v)) => header_map.insert(Header::Host, v.to_string()),
+        if let Some((req, headers_and_body)) = req {
+            let (raw_headers, body) = headers_and_body.unwrap_or_default();
+
+            Ok(Self {
+                method: match req.get(0) {
+                    Some(&"GET") => Some(HttpMethod::GET),
+                    Some(_) => unimplemented!(),
+                    None => None,
+                },
+                url: match req.get(1) {
+                    Some(&url) => Some(url.to_owned()),
+                    None => None,
+                },
+                protocol: match req.get(2) {
+                    Some(&protocol) => Some(protocol.to_owned()),
+                    None => None,
+                },
+                headers: raw_headers.into_iter().fold(
+                    HashMap::<Header, String>::new(),
+                    |mut headers, raw_header| {
+                        let _ = match raw_header.split_once(" ") {
+                            Some(("Host:", v)) => headers.insert(Header::Host, v.to_string()),
                             Some(("User-Agent:", v)) => {
-                                header_map.insert(Header::UserAgent, v.to_string())
+                                headers.insert(Header::UserAgent, v.to_string())
                             }
-
-                            Some(("Accept:", v)) => {
-                                header_map.insert(Header::Accept, v.to_string())
-                            }
+                            Some(("Accept:", v)) => headers.insert(Header::Accept, v.to_string()),
                             Some(_) => unimplemented!(),
                             None => None,
                         };
-                    });
 
-                    header_map
-                } else {
-                    HashMap::new()
-                }
-            },
-            body: Some(body.to_string()),
-        })
+                        headers
+                    },
+                ),
+                body,
+            })
+        } else {
+            panic!();
+        }
     }
 
     pub fn get_url(&self) -> &String {

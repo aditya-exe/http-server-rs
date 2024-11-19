@@ -48,15 +48,10 @@ impl HttpServer {
 
         match url {
             "/" => {
-                // let response =
-                //     HttpResponse::create(http_req.get_protocol().as_str(), HttpStatusCode::Ok);
+                let response =
+                    HttpResponse::create(http_req.get_protocol().as_str(), HttpStatusCode::Ok);
 
-                // response.send(&mut stream).await?;
-                let mut resp = String::new();
-                resp.push_str(
-                    format!("{} {}\r\n\r\n", &http_req.get_protocol(), HttpStatusCode::Ok).as_str(),
-                );
-                stream.write_all(resp.as_bytes()).await.context("TRO")?;
+                response.send(&mut stream).await?;
             }
             path if url.starts_with("/echo/") => {
                 let slug = path.split_once("/echo/").unwrap().1;
@@ -69,10 +64,13 @@ impl HttpServer {
             }
             _ if url.starts_with("/user-agent") => {
                 let user_agent = http_req.headers.get(&Header::UserAgent).unwrap();
+                dbg!(&user_agent);
                 let response = HttpResponse::create(&http_req.get_protocol(), HttpStatusCode::Ok)
                     .add_header(Header::ContentType, "text/plain".to_string())
                     .add_header(Header::ContentLength, user_agent.len().to_string())
                     .add_body(user_agent.to_owned());
+
+                dbg!(&response);
 
                 response.send(&mut stream).await?;
             }

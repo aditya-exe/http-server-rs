@@ -1,6 +1,8 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+pub type Headers = HashMap<Header, String>;
+
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Copy)]
 pub enum Header {
     ContentType,
     ContentLength,
